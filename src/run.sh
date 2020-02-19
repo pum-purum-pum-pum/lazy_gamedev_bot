@@ -1,1 +1,0 @@
-curl -X POST -d '{"code":"fn main() {\n    println!(\"Hello world!\");\n}","version":"stable","optimize":"0","test":false,"separate_output":true,"color":true,"backtrace":"0"}' https://play.rust-lang.org/evaluate.json
