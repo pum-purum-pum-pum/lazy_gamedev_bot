@@ -16,3 +16,5 @@ telegram-bot = {git = "https://github.com/telegram-rs/telegram-bot.git"}
 chrono = { version = "0.4.10", features = ["serde"] }
 ron = "0.5.1"
 serde = { version = "1.0.104", features = ["derive"]}
+env_logger = "0.7.1"
+log = "0.4.8"
