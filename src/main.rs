@@ -71,7 +71,6 @@ static CHATS: Lazy<Mutex<Chats>> = Lazy::new(|| {
 });
 
 fn parse_request(mut tokens: Split<'_, &str>) -> Result<(Weekday, NaiveTime, String)> {
-    // let mut tokens = input.split(" ");
     let token = tokens.next().ok_or("no dayweek token")?;
     info!("{}", &token);
     let day_week: Weekday = from_str(&format!("\"{}\"", token))?;
@@ -103,6 +102,10 @@ async fn reminder(api: Api) {
 	    	for (id, timers) in CHATS.lock().await.reminders.iter_mut() {
 		    	let now: DateTime<Utc> = Utc::now() + chrono::Duration::hours(MOSCOW_OFFSET);
 		    	for timer in timers.iter_mut() {
+                    let week_day = now.weekday();
+                    if week_day != timer.week_day {
+                        continue;
+                    }
 		    		let naive_dt = NaiveDateTime::new(now.date().naive_utc(), timer.time);
 		    		let dt = DateTime::<Utc>::from_utc(naive_dt, Utc);
 		    		let d_sec = (now - dt).num_seconds();
