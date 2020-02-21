@@ -22,7 +22,7 @@ use telegram_bot::{
         refs::{ChatId, ChatRef},
         requests::send_message::{CanReplySendMessage, SendMessage},
     },
-    Api, MessageKind, UpdateKind,
+    Api, Message, MessageKind, UpdateKind,
 };
 use tokio::{self, sync::Mutex, time::delay_for};
 
@@ -142,50 +142,7 @@ async fn main() -> Result<()> {
                 let chat_id = message.chat.id();
                 let mut tokens = data.split(" ");
                 if let Some(cmd) = tokens.next() {
-                    // first token
-                    info!("{:?}", &cmd);
-                    let cmd = cmd.to_string();
-                    match cmd.as_ref() {
-                        "/remind" => {
-                            // set reminder
-                            match parse_request(tokens) {
-                                Ok((week_day, time, msg)) => {
-                                    info!("Updating");
-                                    let mut chats = CHATS.lock().await;
-
-                                    let chat_reminds =
-                                        chats.reminders.entry(chat_id).or_insert(vec![]);
-                                    chat_reminds.push(Timer {
-                                        name: "".to_string(),
-                                        msg,
-                                        week_day,
-                                        time,
-                                        last_time: None,
-                                    });
-                                    let _err = update_file(DATA_PATH, &*chats);
-                                    info!("{:?}", _err);
-                                    info!("Updated chats {:?}", chats.reminders.get(&chat_id));
-                                }
-                                Err(err) => {
-                                    dbg!(err);
-                                }
-                            }
-                        }
-                        "/remind_state" => {
-                            api.send(message.text_reply(format!(
-                                "Current state is: ```{:?}```",
-                                &CHATS.lock().await.reminders.get(&chat_id)
-                            )))
-                            .await?;
-                        }
-                        "/remind_help" => {
-                            api.send(message.text_reply(
-                                "/remind <Weekday: 3 letters Mon, ...> HH:MM:SS".to_string(),
-                            ))
-                            .await?;
-                        }
-                        _ => (),
-                    }
+                    dispatch_command(&api, &message, &chat_id, tokens, cmd.to_string()).await?
                 } else {
                     continue;
                 }
@@ -199,4 +156,56 @@ async fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+async fn dispatch_command(
+    api: &Api,
+    message: &Message,
+    chat_id: &ChatId,
+    tokens: Split<'_, &str>,
+    cmd: String,
+) -> Result<()> {
+    info!("{:?}", cmd);
+    match cmd.as_ref() {
+        "/remind" => set_reminder(&chat_id, tokens).await,
+        "/remind_state" => {
+            api.send(message.text_reply(format!(
+                "Current state is: ```{:?}```",
+                &CHATS.lock().await.reminders.get(&chat_id)
+            )))
+            .await?;
+        }
+        "/remind_help" => {
+            api.send(
+                message.text_reply("/remind <Weekday: 3 letters Mon, ...> HH:MM:SS".to_string()),
+            )
+            .await?;
+        }
+        _ => (),
+    };
+    Ok(())
+}
+
+async fn set_reminder(chat_id: &ChatId, tokens: Split<'_, &str>) {
+    match parse_request(tokens) {
+        Ok((week_day, time, msg)) => {
+            info!("Updating");
+            let mut chats = CHATS.lock().await;
+
+            let chat_reminds = chats.reminders.entry(*chat_id).or_insert(vec![]);
+            chat_reminds.push(Timer {
+                name: "".to_string(),
+                msg,
+                week_day,
+                time,
+                last_time: None,
+            });
+            let _err = update_file(DATA_PATH, &*chats);
+            info!("{:?}", _err);
+            info!("Updated chats {:?}", chats.reminders.get(&chat_id));
+        }
+        Err(err) => {
+            dbg!(err);
+        }
+    }
 }
