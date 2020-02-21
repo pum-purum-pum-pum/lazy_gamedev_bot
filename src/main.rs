@@ -4,20 +4,28 @@ use std::{
     fs::File,
     io::{Read, Write},
     str::Split,
-    time::Duration
+    time::Duration,
 };
 
-use chrono::{DateTime, Datelike, NaiveTime, NaiveDateTime, Utc, Weekday};
+use chrono::{DateTime, Datelike, NaiveDateTime, NaiveTime, Utc, Weekday};
 use env_logger::Builder;
 use futures::StreamExt;
+use log::info;
 use log::LevelFilter;
 use once_cell::sync::Lazy;
-use ron::{de::from_str,
-ser::{to_string_pretty, PrettyConfig}};
+use ron::{
+    de::from_str,
+    ser::{to_string_pretty, PrettyConfig},
+};
 use serde::{Deserialize, Serialize};
-use telegram_bot::{types::{refs::{ChatId, ChatRef}, requests::send_message::{CanReplySendMessage, SendMessage}}, Api, MessageKind, UpdateKind};
+use telegram_bot::{
+    types::{
+        refs::{ChatId, ChatRef},
+        requests::send_message::{CanReplySendMessage, SendMessage},
+    },
+    Api, MessageKind, UpdateKind,
+};
 use tokio::{self, sync::Mutex, time::delay_for};
-use log::info;
 
 const MOSCOW_OFFSET: i64 = 3;
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -90,36 +98,40 @@ fn update_file(data_path: &str, chats: &Chats) -> Result<()> {
 }
 
 async fn reminder(api: Api) {
-	let mut last_time_log: DateTime<Utc> = Utc::now() + chrono::Duration::hours(MOSCOW_OFFSET);
+    let mut last_time_log: DateTime<Utc> = Utc::now() + chrono::Duration::hours(MOSCOW_OFFSET);
     loop {
-    	{
-	    	for (id, timers) in CHATS.lock().await.reminders.iter_mut() {
-		    	let now: DateTime<Utc> = Utc::now() + chrono::Duration::hours(MOSCOW_OFFSET);
-		    	for timer in timers.iter_mut() {
+        {
+            for (id, timers) in CHATS.lock().await.reminders.iter_mut() {
+                let now: DateTime<Utc> = Utc::now() + chrono::Duration::hours(MOSCOW_OFFSET);
+                for timer in timers.iter_mut() {
                     let week_day = now.weekday();
                     if week_day != timer.week_day {
                         continue;
                     }
-		    		let naive_dt = NaiveDateTime::new(now.date().naive_utc(), timer.time);
-		    		let dt = DateTime::<Utc>::from_utc(naive_dt, Utc);
-		    		let d_sec = (now - dt).num_seconds();
-		    		let need_remind = timer.last_time.map(|t| (now - t).num_seconds() > 100).unwrap_or(true);
-		    		if d_sec.abs() < 1 && need_remind {
-		    			timer.last_time = Some(now);
-				    	let chat_ref = ChatRef::from_chat_id(*id);
-				    	let msg = SendMessage::new(chat_ref, format!("{}: {}", &timer.name, &timer.msg));
-				    	let _err = api.send(msg).await;
-		    		}
-		    	}
-	    	}
-	    	// unlock mutex
-    	}
-    	delay_for(Duration::from_millis(100)).await;
-    	let now: DateTime<Utc> = Utc::now() + chrono::Duration::hours(MOSCOW_OFFSET);
-    	if (now - last_time_log).num_seconds() > 10 {
-	    	info!("{:?}", now);
-    		last_time_log = now;
-    	}
+                    let naive_dt = NaiveDateTime::new(now.date().naive_utc(), timer.time);
+                    let dt = DateTime::<Utc>::from_utc(naive_dt, Utc);
+                    let d_sec = (now - dt).num_seconds();
+                    let need_remind = timer
+                        .last_time
+                        .map(|t| (now - t).num_seconds() > 100)
+                        .unwrap_or(true);
+                    if d_sec.abs() < 1 && need_remind {
+                        timer.last_time = Some(now);
+                        let chat_ref = ChatRef::from_chat_id(*id);
+                        let msg =
+                            SendMessage::new(chat_ref, format!("{}: {}", &timer.name, &timer.msg));
+                        let _err = api.send(msg).await;
+                    }
+                }
+            }
+            // unlock mutex
+        }
+        delay_for(Duration::from_millis(100)).await;
+        let now: DateTime<Utc> = Utc::now() + chrono::Duration::hours(MOSCOW_OFFSET);
+        if (now - last_time_log).num_seconds() > 10 {
+            info!("{:?}", now);
+            last_time_log = now;
+        }
     }
 }
 
@@ -131,9 +143,7 @@ async fn main() -> Result<()> {
     let token = env::var("LAZY_TOKEN").expect("token not set");
     let api = Api::new(token);
     let a = api.clone();
-    tokio::spawn(async move {
-    	reminder(a).await
-    });
+    tokio::spawn(async move { reminder(a).await });
     // Fetch new updates via long poll method
     let mut stream = api.stream();
     // api.send(message.text_reply("hello".to_string()));
@@ -153,7 +163,7 @@ async fn main() -> Result<()> {
                             // set reminder
                             match parse_request(tokens) {
                                 Ok((week_day, time, msg)) => {
-                                	info!("Updating");
+                                    info!("Updating");
                                     let mut chats = CHATS.lock().await;
 
                                     let chat_reminds =
@@ -167,10 +177,7 @@ async fn main() -> Result<()> {
                                     });
                                     let _err = update_file(DATA_PATH, &*chats);
                                     info!("{:?}", _err);
-                                    info!(
-                                        "Updated chats {:?}",
-                                        chats.reminders.get(&chat_id)
-                                    );
+                                    info!("Updated chats {:?}", chats.reminders.get(&chat_id));
                                 }
                                 Err(err) => {
                                     dbg!(err);
