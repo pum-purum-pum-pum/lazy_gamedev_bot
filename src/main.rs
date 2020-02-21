@@ -10,8 +10,7 @@ use std::{
 use chrono::{DateTime, Datelike, NaiveDateTime, NaiveTime, Utc, Weekday};
 use env_logger::Builder;
 use futures::StreamExt;
-use log::info;
-use log::LevelFilter;
+use log::{info, LevelFilter};
 use once_cell::sync::Lazy;
 use ron::{
     de::from_str,
