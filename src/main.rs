@@ -1,29 +1,23 @@
-#[macro_use]
-extern crate log;
+use std::{
+    collections::HashMap,
+    env,
+    fs::File,
+    io::{Read, Write},
+    str::Split,
+    time::Duration
+};
 
-use std::collections::HashMap;
-use std::env;
-use std::fs::File;
-use std::io::prelude::*;
-use std::str::Split;
-use std::time::Duration;
-
-use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, NaiveDateTime, Timelike, Utc, Weekday};
+use chrono::{DateTime, Datelike, NaiveTime, NaiveDateTime, Utc, Weekday};
 use env_logger::Builder;
 use futures::StreamExt;
 use log::LevelFilter;
 use once_cell::sync::Lazy;
-use ron::de::from_str;
-use ron::ser::{to_string_pretty, PrettyConfig};
+use ron::{de::from_str,
+ser::{to_string_pretty, PrettyConfig}};
 use serde::{Deserialize, Serialize};
-use telegram_bot::types::chat::MessageChat;
-use telegram_bot::types::refs::ChatId;
-use telegram_bot::types::refs::{GroupId, SupergroupId, UserId, ChatRef};
-use telegram_bot::types::requests::send_message::SendMessage;
-use telegram_bot::*;
-use tokio;
-use tokio::sync::Mutex;
-use tokio::time::delay_for;
+use telegram_bot::{types::{refs::{ChatId, ChatRef}, requests::send_message::{CanReplySendMessage, SendMessage}}, Api, MessageKind, UpdateKind};
+use tokio::{self, sync::Mutex, time::delay_for};
+use log::info;
 
 const MOSCOW_OFFSET: i64 = 3;
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
