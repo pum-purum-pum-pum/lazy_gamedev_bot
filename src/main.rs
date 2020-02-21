@@ -65,7 +65,7 @@ static CHATS: Lazy<Mutex<Chats>> = Lazy::new(|| {
                 .expect("failed to format")
                 .as_bytes(),
         )
-        .expect("failed to create byts array");
+        .expect("failed to create bytes array");
         chats
     };
     Mutex::new(chats)
