@@ -46,30 +46,30 @@ struct Chats {
 static DATA_PATH: &'static str = "chats.ron";
 
 static CHATS: Lazy<Mutex<Chats>> = Lazy::new(|| {
-    let pretty = PrettyConfig {
-        depth_limit: 2,
-        separate_tuple_members: true,
-        enumerate_arrays: true,
-        ..PrettyConfig::default()
-    };
     let chats = if let Ok(mut file) = File::open(DATA_PATH) {
         let mut data = String::new();
         file.read_to_string(&mut data)
             .expect("failed to read saved data");
         from_str(&data).expect("failed to parse saved data")
     } else {
-        let mut file = File::create(DATA_PATH).expect("failed to create file");
         let chats = Chats::default();
-        file.write_all(
-            to_string_pretty(&chats, pretty)
-                .expect("failed to format")
-                .as_bytes(),
-        )
-        .expect("failed to create bytes array");
+        update_file(DATA_PATH, &chats).expect("Failed to save data");
         chats
     };
     Mutex::new(chats)
 });
+
+fn update_file(data_path: &str, chats: &Chats) -> Result<()> {
+    let pretty = PrettyConfig {
+        depth_limit: 2,
+        separate_tuple_members: true,
+        enumerate_arrays: true,
+        ..PrettyConfig::default()
+    };
+    let mut file = File::create(data_path)?;
+    file.write_all(to_string_pretty(chats, pretty)?.as_bytes())?;
+    Ok(())
+}
 
 fn parse_request(mut tokens: Split<'_, &str>) -> Result<(Weekday, NaiveTime, String)> {
     let token = tokens.next().ok_or("no dayweek token")?;
@@ -82,18 +82,6 @@ fn parse_request(mut tokens: Split<'_, &str>) -> Result<(Weekday, NaiveTime, Str
     let token = tokens.next().ok_or("no msg token")?;
 
     Ok((day_week, time, token.to_string()))
-}
-
-fn update_file(data_path: &str, chats: &Chats) -> Result<()> {
-    let pretty = PrettyConfig {
-        depth_limit: 2,
-        separate_tuple_members: true,
-        enumerate_arrays: true,
-        ..PrettyConfig::default()
-    };
-    let mut file = File::create(data_path)?;
-    file.write_all(to_string_pretty(chats, pretty)?.as_bytes())?;
-    Ok(())
 }
 
 async fn reminder(api: Api) {
